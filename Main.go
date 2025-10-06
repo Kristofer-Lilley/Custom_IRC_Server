@@ -23,19 +23,18 @@ var storageSlice []MessageStruct = make([]MessageStruct, 0, 100) // Preallocate 
 
 var bufferSlice []MessageStruct
 
-//TODO Send storage Slice to new clients on connection
-
+// TODO Send storage Slice to new clients on connection
 var connSlice []ClientStruct
 
 func main() {
-	//Listen for incoming connections on port 8080
+	// Listen for incoming connections on port 8080
 	ln, err := net.Listen("tcp", ":8080")
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	//Handle connections
+	// Handle connections
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -50,9 +49,7 @@ func handleConnection(conn net.Conn) {
 	defer conn.Close()
 	remoteAddr := conn.RemoteAddr().String()
 	connSlice = append(connSlice, ClientStruct{Conn: conn, Addr: remoteAddr})
-
 	fmt.Println("New connection from", remoteAddr)
-
 	reader := bufio.NewReader(conn)
 	for {
 		line, err := reader.ReadBytes('\n')

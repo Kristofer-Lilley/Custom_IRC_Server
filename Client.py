@@ -74,15 +74,33 @@ if __name__ == "__main__":
             conn.close()
             client_connection = None
     
-    def start_server():
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.bind((server_IP.get(), server_Port.get()))
-        server_socket.listen()
-        while True:
-            conn, addr = server_socket.accept()
-            threading.Thread(handle_client, args=(conn, addr), daemon=True).start()
+    def connect_to_server():
+        global client_connection
+        try:
+            client_connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            client_connection.connect((server_IP.get(), server_Port.get()))
+            threading.Thread(target=receive_messages, daemon=True).start()
+            print("Connected to server.")
+        except Exception as e:
+            print(f"Connection error: {e}")
+            client_connection = None
+        
+    def receive_messages():
+        global client_connection
+        try:
+            while True:
+                data = client_connection.recv(1024)
+                if not data:
+                    break
+                message_data.append(data.decode('utf-8'))
+                chat_list_box.insert(tk.END, data.decode('utf-8'))
+        except Exception as e:
+            print(f"Error receiving messages: {e}")
+        finally:
+            client_connection.close()
+            client_connection = None
             
-    connect_button = tk.Button(connection_frame, text="Connect", command=start_server)
+    connect_button = tk.Button(connection_frame, text="Connect", command=connect_to_server)
     connect_button.grid(row=3, column=0, columnspan=2, pady=5)
             
     def send_message():
