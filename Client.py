@@ -6,7 +6,7 @@ import threading
 
 
 ##TODO Add column in middle for send button and name. or put send below server/port and name inside 
-
+##TODO Change timestamp to GMT and then back to local time so we all use common time
 message = {
     "Timestamp": None,
     "Name": None,
@@ -17,7 +17,7 @@ message = {
 if __name__ == "__main__":
     root = tk.Tk()
     root.title("Client")
-    root.geometry("800x600")
+    root.geometry("1000x650")
     
     client_connection = None
 
@@ -26,7 +26,7 @@ if __name__ == "__main__":
     
     text_content = tk.StringVar()
     name_content = tk.StringVar()
-    server_IP = tk.StringVar(value="127.0.0.1")
+    server_IP = tk.StringVar(value="192.168.0.34")
     server_Port = tk.IntVar(value=8080)
     
     def get_time():
@@ -93,8 +93,11 @@ if __name__ == "__main__":
                 if not data:
                     break
                 message_data.append(data.decode('utf-8'))
-                chat_list_box.insert(tk.END, data.decode('utf-8'))
-        except Exception as e:
+                message_object = json.loads(data.decode('utf-8'))
+                print(type(message_object))
+                print(message_object)
+                chat_list_box.insert(tk.END, f"[{message_object['Timestamp']}]<{message_object['Name']}>: {message_object['Content']}")
+        except Exception as e: 
             print(f"Error receiving messages: {e}")
         finally:
             client_connection.close()
@@ -110,8 +113,9 @@ if __name__ == "__main__":
                 message["Name"] = name_content.get()
                 message["Content"] = text_content.get()
                 message["Timestamp"] = get_time()
-                message_json = json.dumps(message) + '\n'
+                message_json = json.dumps(message) + "\n"
                 client_connection.sendall(message_json.encode('utf-8'))
+                
                 text_content.set("")
             except Exception as e:
                 print(f"Error sending message: {e}")
@@ -123,14 +127,12 @@ if __name__ == "__main__":
     chat_list_box = tk.Listbox(root, width=50, height=20)
     chat_list_box.grid(row=0, column=1, columnspan=2, rowspan=2, padx=10, pady=10) 
     
-    ## create text input area for message content
+
     
     text_input = tk.Entry(root,textvariable = text_content, width=50)
     text_input.grid(row=2, column=1,columnspan=2, padx=10, pady=10)
     
-    ## Add received Text to message_data list and update label text -> Display of messages 
-    
-    
+
     
     
     send_button = tk.Button(root, text="Send", command=send_message)
