@@ -19,7 +19,9 @@ type ClientStruct struct {
 	Addr string
 }
 
-var storageSlice []MessageStruct
+var storageSlice []MessageStruct = make([]MessageStruct, 0, 100) // Preallocate capacity for 100 messages
+
+var bufferSlice []MessageStruct
 
 //TODO Send storage Slice to new clients on connection
 
@@ -66,20 +68,26 @@ func handleConnection(conn net.Conn) {
 			fmt.Println("Error decoding JSON:", err)
 			continue
 		}
-		storeMessages(msg)
+		handleMessages(msg)
 		fmt.Printf("Received: %+v\n", msg)
 	}
 }
 
-func storeMessages(msg MessageStruct) {
-	storageSlice = append(storageSlice, msg)
+func handleMessages(msg MessageStruct) {
+
 	if len(storageSlice) > 100 {
 		storageSlice = storageSlice[1:] // Remove oldest
 	}
+	storageSlice = append(storageSlice, msg)
 	distributeNewMessage(msg)
 }
 
 func distributeNewMessage(msg MessageStruct) {
-	// Placeholder for distributing the new message to all connected clients
-	// This could involve iterating over a list of client connections and sending the message
+	for _, client := range connSlice {
+		encoder := json.NewEncoder(client.Conn)
+		err := encoder.Encode(msg)
+		if err != nil {
+			fmt.Printf("Error sending message to %s: %v\n", client.Addr, err)
+		}
+	}
 }
