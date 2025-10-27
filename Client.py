@@ -1,6 +1,7 @@
 import socket
 import json
 import tkinter as tk
+import tkinter.scrolledtext as scrolledTextWidget
 import time 
 import threading
 
@@ -32,8 +33,8 @@ if __name__ == "__main__":
     
     text_content = tk.StringVar()
     name_content = tk.StringVar()
-    server_IP = tk.StringVar(value="192.168.0.34")
-    server_Port = tk.IntVar(value=8080)
+    server_IP = tk.StringVar(value="192.168.0.80")
+    server_Port = tk.IntVar(value=9090)
     
     def get_time():
         return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
@@ -97,20 +98,31 @@ if __name__ == "__main__":
             
         try:
             while True:
-                data = client_connection.recv(1024)
+                data = client_connection.recv(4096)
                 if not data:
                     break
-                message_data.append(data.decode('utf-8'))
-                message_object = json.loads(data.decode('utf-8'))
-                print(type(message_object))
-                print(message_object)
+                text = data.decode('utf-8')
+    
+                try:
+                    message_object = json.loads(text)
+                except Exception as e:
+                    print(f"JSON decode error: {e}")
+                    continue
                 
+                # helper to append a line and scroll
+                def append_line(line):
+                    chat_list_box.insert(tk.END, line + "\n")
+                    chat_list_box.see(tk.END)
+    
                 if isinstance(message_object, dict):
-                    chat_list_box.insert(tk.END, f"[{message_object['Timestamp']}]<{message_object['Name']}>: {message_object['Content']}")
+                    formatted = f"[{message_object.get('Timestamp')}]<{message_object.get('Name')}>: {message_object.get('Content')}"
+                    root.after(0, append_line, formatted)
                 elif isinstance(message_object, list):
-                    channel_list_box.delete(0, tk.END)
-                    for channel in message_object:
-                        channel_list_box.insert(tk.END, channel)
+                    def populate_channels(channels):
+                        channel_list_box.delete(0, tk.END)
+                        for channel in channels:
+                            channel_list_box.insert(tk.END, channel)
+                    root.after(0, populate_channels, message_object)
                         
         except Exception as e: 
             print(f"Error receiving messages: {e}")
@@ -135,6 +147,7 @@ if __name__ == "__main__":
                 client_connection.sendall(message_json.encode('utf-8'))
                 
                 text_content.set("")
+                
             except Exception as e:
                 print(f"Error sending message: {e}")
         else:
@@ -142,7 +155,7 @@ if __name__ == "__main__":
             
     
     
-    chat_list_box = tk.Listbox(root, width=50, height=20)
+    chat_list_box = scrolledTextWidget.ScrolledText(root, width=50, height=20)
     chat_list_box.grid(row=0, column=1, columnspan=2, rowspan=2, padx=10, pady=10) 
     
 
