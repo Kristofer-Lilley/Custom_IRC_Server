@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 )
 
 type MessageStruct struct {
@@ -14,22 +15,32 @@ type MessageStruct struct {
 	Content   string `json:"Content"`
 }
 
+type ChannelStruct struct {
+	ChannelNames []string `json:"ChannelNames"`
+}
+
 type ClientStruct struct {
-	Conn net.Conn
-	Addr string
+	Conn       net.Conn
+	Addr       string
+	WriteMutex sync.Mutex
+}
+
+// var channelSlice []ChannelStruct = make([]ChannelStruct, 0, 5) // Preallocate capacity for 5 channels
+var channelSlice []ChannelStruct = []ChannelStruct{
+	{ChannelNames: []string{"#general", "#random", "#help"}},
+	// add more ChannelStruct entries here if you want grouped lists
 }
 
 var storageSlice []MessageStruct = make([]MessageStruct, 0, 100) // Preallocate capacity for 100 messages
 
-var bufferSlice []MessageStruct
-
 //TODO Send storage Slice to new clients on connection
 
-var connSlice []ClientStruct
+var connSlice []*ClientStruct
+var connSliceMutex sync.RWMutex
 
 func main() {
 	//Listen for incoming connections on port 8080
-	ln, err := net.Listen("tcp", ":8080")
+	ln, err := net.Listen("tcp", ":9090")
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -49,8 +60,17 @@ func main() {
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 	remoteAddr := conn.RemoteAddr().String()
-	connSlice = append(connSlice, ClientStruct{Conn: conn, Addr: remoteAddr})
+	client := &ClientStruct{Conn: conn, Addr: remoteAddr}
+	connSliceMutex.Lock()
+	connSlice = append(connSlice, client)
+	connSliceMutex.Unlock()
 
+	client.WriteMutex.Lock()
+	encoder := json.NewEncoder(client.Conn)
+	if err := encoder.Encode(channelSlice); err != nil {
+		fmt.Printf("Error sending channels to %s: %v\n", remoteAddr, err)
+	}
+	client.WriteMutex.Unlock()
 	fmt.Println("New connection from", remoteAddr)
 
 	reader := bufio.NewReader(conn)
@@ -75,7 +95,7 @@ func handleConnection(conn net.Conn) {
 
 func handleMessages(msg MessageStruct) {
 
-	if len(storageSlice) > 100 {
+	if len(storageSlice) >= 100 {
 		storageSlice = storageSlice[1:] // Remove oldest
 	}
 	storageSlice = append(storageSlice, msg)
@@ -83,9 +103,16 @@ func handleMessages(msg MessageStruct) {
 }
 
 func distributeNewMessage(msg MessageStruct) {
-	for _, client := range connSlice {
+	connSliceMutex.RLock()
+	clients := make([]*ClientStruct, len(connSlice))
+	copy(clients, connSlice)
+	connSliceMutex.RUnlock()
+
+	for _, client := range clients {
+		client.WriteMutex.Lock()
 		encoder := json.NewEncoder(client.Conn)
 		err := encoder.Encode(msg)
+		client.WriteMutex.Unlock()
 		if err != nil {
 			fmt.Printf("Error sending message to %s: %v\n", client.Addr, err)
 		}

@@ -7,6 +7,10 @@ import threading
 
 ##TODO Add column in middle for send button and name. or put send below server/port and name inside 
 ##TODO Change timestamp to GMT and then back to local time so we all use common time
+##TODO Add scroll bar to listbox
+##TODO Add ability to hit enter to send message
+##TODO Create Textbox to show and change when connected to server 
+##TODO Handle receiving bulk messages on connection to server 
 message = {
     "Timestamp": None,
     "Name": None,
@@ -23,6 +27,8 @@ if __name__ == "__main__":
 
     
     message_data = []
+    
+    channel_data = []
     
     text_content = tk.StringVar()
     name_content = tk.StringVar()
@@ -87,6 +93,8 @@ if __name__ == "__main__":
         
     def receive_messages():
         global client_connection
+
+            
         try:
             while True:
                 data = client_connection.recv(1024)
@@ -96,7 +104,14 @@ if __name__ == "__main__":
                 message_object = json.loads(data.decode('utf-8'))
                 print(type(message_object))
                 print(message_object)
-                chat_list_box.insert(tk.END, f"[{message_object['Timestamp']}]<{message_object['Name']}>: {message_object['Content']}")
+                
+                if isinstance(message_object, dict):
+                    chat_list_box.insert(tk.END, f"[{message_object['Timestamp']}]<{message_object['Name']}>: {message_object['Content']}")
+                elif isinstance(message_object, list):
+                    channel_list_box.delete(0, tk.END)
+                    for channel in message_object:
+                        channel_list_box.insert(tk.END, channel)
+                        
         except Exception as e: 
             print(f"Error receiving messages: {e}")
         finally:
@@ -105,6 +120,9 @@ if __name__ == "__main__":
             
     connect_button = tk.Button(connection_frame, text="Connect", command=connect_to_server)
     connect_button.grid(row=3, column=0, columnspan=2, pady=5)
+    
+    channel_list_box = tk.Listbox(root, width=20, height=20)
+    channel_list_box.grid(row=4, column=0, rowspan=2, padx=10, pady=10)
             
     def send_message():
         global client_connection
